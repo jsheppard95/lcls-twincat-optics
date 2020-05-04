@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4022.18">
+  <POU Name="FB_RunHOMS_Test" Id="{c81c4f62-34f7-4ff5-b928-2b2a5091b392}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_RunHOMS_Test EXTENDS TcUnit.FB_TestSuite
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[CoupledAfterStartup();]]></ST>
+    </Implementation>
+    <Method Name="CoupledAfterStartup" Id="{2e7b3eec-c796-4614-b0fd-9bd3d4f01b04}">
+      <Declaration><![CDATA[METHOD CoupledAfterStartup
+VAR
+	fbRunHoms : FB_RunHoms;
+	bCoupleStatus : BOOL;
+	bExpectedCoupleStatus : BOOL := TRUE;
+	
+	// Test Axes
+	M1 : DUT_MotionStage;
+	M2 : DUT_MotionStage;
+	M3 : DUT_MotionStage;
+	M4 : DUT_MotionStage;
+	M5 : DUT_MotionStage;
+	TestHOMS : DUT_HOMS;
+	bActualCoupleStatus : BOOL;
+	nCycleCount : UINT := 0;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[TEST('CoupledAtStartup');
+
+TestHOMS.fbRunHOMS(stYup:=M1,
+		  		   stYdwn:=M2,
+		           stXup:=M3,
+		           stXdwn:=M4,
+		           stPitch:=M5,
+		           nYupEncRef:=0,
+		           nYdwnEncRef:=0,
+		           nXupEncRef:=0,
+		           nXdwnEncRef:=0,
+		           bExecuteCoupleY:=TestHOMS.bExecuteCoupleY,
+                   bExecuteCoupleX:=TestHOMS.bExecuteCoupleX,
+		           bExecuteDecoupleY:=TestHOMS.bExecuteDecoupleY,
+                   bExecuteDecoupleX:=TestHOMS.bExecuteDecoupleX,
+                   bGantryAlreadyCoupledY=>TestHOMS.bGantryAlreadyCoupledY,
+                   bGantryAlreadyCoupledX=>TestHOMS.bGantryAlreadyCoupledX,
+                   nCurrGantryY=>TestHOMS.nCurrGantryY,
+                   nCurrGantryX=>TestHOMS.nCurrGantryX);
+
+bActualCoupleStatus := TestHOMS.bGantryAlreadyCoupledY AND TestHOMS.bGantryAlreadyCoupledX;
+IF nCycleCount > 0 THEN
+	AssertEquals(Expected := bExpectedCoupleStatus,
+	         	 Actual := bActualCoupleStatus,
+			 	 Message := 'Either the Y or X gantry axes did not couple after startup');
+END_IF;
+TEST_FINISHED();]]></ST>
+      </Implementation>
+    </Method>
+  </POU>
+</TcPlcObject>

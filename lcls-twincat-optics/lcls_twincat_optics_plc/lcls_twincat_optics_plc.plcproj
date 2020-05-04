@@ -76,7 +76,13 @@
     <Compile Include="POUs\Main.TcPOU">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="POUs\Tests\TEST_PitchControl.TcPOU">
+    <Compile Include="POUs\Test\FB_RunHOMS_Test.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Test\PRG_TEST.TcPOU">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="POUs\Test\TEST_PitchControl.TcPOU">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Version\Global_Version.TcGVL">
@@ -87,7 +93,7 @@
     <Folder Include="DUTs" />
     <Folder Include="GVLs" />
     <Folder Include="POUs\Helpers" />
-    <Folder Include="POUs\Tests" />
+    <Folder Include="POUs\Test" />
     <Folder Include="Version" />
     <Folder Include="VISUs" />
     <Folder Include="POUs" />
