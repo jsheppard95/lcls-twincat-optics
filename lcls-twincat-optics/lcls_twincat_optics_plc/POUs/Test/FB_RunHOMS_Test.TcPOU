@@ -1,26 +1,29 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4022.18">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.3">
   <POU Name="FB_RunHOMS_Test" Id="{c81c4f62-34f7-4ff5-b928-2b2a5091b392}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_RunHOMS_Test EXTENDS TcUnit.FB_TestSuite
 VAR
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[//CoupledAfterStartup();
+      <ST><![CDATA[CoupledAfterStartup();
 GantryInterlockStopsMotion();]]></ST>
     </Implementation>
     <Method Name="CoupledAfterStartup" Id="{2e7b3eec-c796-4614-b0fd-9bd3d4f01b04}">
       <Declaration><![CDATA[METHOD CoupledAfterStartup
 VAR
-	bExpectedCoupleStatus : BOOL := TRUE;
-	
-	// Test Axes
+	// Test Struct
 	TestHOMS : DUT_HOMS;
+
+	bExpectedCoupleStatus : BOOL := TRUE;
 	bActualCoupleStatus : BOOL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[TEST('CoupledAfterStartup');
+        <ST><![CDATA[// Testing automatic coupling of gantried Y and X axes
+// Currently takes 1 additinal cycle for coupling to take effect after the command is sent
+// Therefore need to wait one cycle before checking couple status
+TEST('CoupledAfterStartup');
 
 TestHOMS.fbRunHOMS(stYup:=GVL_CoupledAfterStartup.M1,
 		  		   stYdwn:=GVL_CoupledAfterStartup.M2,
@@ -41,20 +44,18 @@ TestHOMS.fbRunHOMS(stYup:=GVL_CoupledAfterStartup.M1,
                    nCurrGantryX=>TestHOMS.nCurrGantryX);
 
 bActualCoupleStatus := TestHOMS.bGantryAlreadyCoupledY AND TestHOMS.bGantryAlreadyCoupledX;
-IF GVL_CoupledAfterStartup.nCycleCount > 0 THEN
+IF NOT GVL_CoupledAfterStartup.bFirstCycle THEN
 	AssertEquals(Expected := bExpectedCoupleStatus,
 	         	 Actual := bActualCoupleStatus,
 			 	 Message := 'Either the Y or X gantry axes did not couple after startup');
 	TEST_FINISHED();
 END_IF;
-GVL_CoupledAfterStartup.nCycleCount := GVL_CoupledAfterStartup.nCycleCount + 1;]]></ST>
+GVL_CoupledAfterStartup.bFirstCycle := FALSE;]]></ST>
       </Implementation>
     </Method>
     <Method Name="GantryInterlockStopsMotion" Id="{3d3b7799-5ae8-4960-a155-ad97b264959c}">
       <Declaration><![CDATA[METHOD GantryInterlockStopsMotion
 VAR
-	TestHOMS : DUT_HOMS;
-	
 	fEncSepFactor : REAL := 1.5;
 	bExecuteCouple : BOOL;
 	bExecuteDecouple : BOOL;
@@ -63,16 +64,18 @@ VAR
 	fbMotionStage_master : FB_MotionStage;
 	fbMotionStage_slave : FB_MotionStage;
 	nCurrGantry : LINT;
-	
-	fExpectedVeloAfterStop : REAL := 0.0;
-	fActualVeloAfterStop : REAL;
+
+	bExpectedEnableStatus : BOOL := FALSE;
+	bActualEnableStatus : BOOL;
 END_VAR
 ]]></Declaration>
       <Implementation>
-        <ST><![CDATA[IF _TaskInfo[1].FirstCycle THEN
-	TEST('GantryInterlockStopsMotion');
-END_IF;
-// Cannot use FB_RunHOMS since enc counts are not inputs. Need to test this behavior at next level down, i.e interfacing with fbAutoCouple
+        <ST><![CDATA[// Testing automatic motion stop when gantry difference of master and slave axes exceeds a tolerance
+// Fake motor separation using fEncSepFactor which scales the readback of the master axis relative to the slave, causing the gantry to grow
+// Ensuring Forward/Backward enables are FALSE for master and slave axes when gantry exceeds the tolerance
+TEST('GantryInterlockStopsMotion');
+// Cannot use FB_RunHOMS since enc counts are not inputs
+// Need to test this behavior at next level down, i.e interfacing with fbAutoCouple
 
 // Enable Bits
 GVL_GantryInterlockStopsMotion.M1.bLimitForwardEnable := True; // Enable Limits
@@ -89,7 +92,7 @@ GVL_GantryInterlockStopsMotion.M2.bHardwareEnable := True; // Enable STO
 GVL_GantryInterlockStopsMotion.M2.nCommand := 3; // Enable Motion Through PLC
 GVL_GantryInterlockStopsMotion.M2.nEnableMode := ENUM_StageEnableMode.ALWAYS;
 
-// Apply Enc Ref Vals
+// Enc Ref Vals
 GVL_GantryInterlockStopsMotion.stMasterEnc.Ref := 0;
 GVL_GantryInterlockStopsMotion.stSlaveEnc.Ref := 0;
 
@@ -108,20 +111,19 @@ fbAutoCouple(nGantryTol:=50000,
              bExecuteDecouple:=bExecuteDecouple,
 			 bGantryAlreadyCoupled=>bGantryAlreadyCoupled);
 
+GVL_GantryInterlockStopsMotion.M1.fPosition := 5.0;
+GVL_GantryInterlockStopsMotion.M1.fVelocity := 1.0;
+GVL_GantryInterlockStopsMotion.M1.bExecute := TRUE;
+	
 fbMotionStage_master(stMotionStage:=GVL_GantryInterlockStopsMotion.M1);
 fbMotionStage_slave(stMotionStage:=GVL_GantryInterlockStopsMotion.M2);
 
-IF GVL_GantryInterlockStopsMotion.M1.bAllEnable THEN
-	GVL_GantryInterlockStopsMotion.M1.fPosition := 5.0;
-	GVL_GantryInterlockStopsMotion.M1.fVelocity := 1.0;
-	GVL_GantryInterlockStopsMotion.M1.bExecute := TRUE;
-	IF nCurrGantry > GVL_Constants.nGANTRY_TOLERANCE_NM_DEFAULT THEN
-		fActualVeloAfterStop := GVL_GantryInterlockStopsMotion.M1.stAxisStatus.fActVelocity + GVL_GantryInterlockStopsMotion.M2.stAxisStatus.fActVelocity;
-		AssertEquals(Expected := fExpectedVeloAfterStop,
-		         	 Actual := fActualVeloAfterStop,
-				 	 Message := 'Either master or slave continued motion after exceeding gantry tolerance');
-		TEST_FINISHED();
-	END_IF;
+IF nCurrGantry > GVL_Constants.nGANTRY_TOLERANCE_NM_DEFAULT THEN
+	bActualEnableStatus := (GVL_GantryInterlockStopsMotion.M1.bAllForwardEnable OR GVL_GantryInterlockStopsMotion.M1.bAllBackwardEnable OR GVL_GantryInterlockStopsMotion.M2.bAllForwardEnable OR GVL_GantryInterlockStopsMotion.M2.bAllBackwardEnable);
+	AssertEquals(Expected := bExpectedEnableStatus,
+		         Actual := bActualEnableStatus,
+				 Message := 'Either master or slave continued motion after exceeding gantry tolerance');
+	TEST_FINISHED();
 END_IF;]]></ST>
       </Implementation>
     </Method>

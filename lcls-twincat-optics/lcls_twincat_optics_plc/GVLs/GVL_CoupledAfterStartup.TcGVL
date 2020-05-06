@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4022.18">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.3">
   <GVL Name="GVL_CoupledAfterStartup" Id="{197d9202-dd0f-43a8-a9c2-c3e9ba80d67e}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL
@@ -15,7 +15,7 @@ VAR_GLOBAL
 	M4 : DUT_MotionStage;
 	M5 : DUT_MotionStage;
 	
-	nCycleCount : UINT := 0;
+	bFirstCycle : BOOL := TRUE;
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

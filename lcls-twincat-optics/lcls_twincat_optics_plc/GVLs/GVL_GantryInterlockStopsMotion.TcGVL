@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4022.18">
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.3">
   <GVL Name="GVL_GantryInterlockStopsMotion" Id="{c06e4a3c-aeb8-43ef-8fac-1752f505e7e0}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL

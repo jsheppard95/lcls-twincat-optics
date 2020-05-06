@@ -135,10 +135,6 @@
       <DefaultResolution>Tc3_Module, * (Beckhoff Automation GmbH)</DefaultResolution>
       <Namespace>Tc3_Module</Namespace>
     </PlaceholderReference>
-    <PlaceholderReference Include="TcUnit">
-      <DefaultResolution>TcUnit, * (www.tcunit.org)</DefaultResolution>
-      <Namespace>TcUnit</Namespace>
-    </PlaceholderReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="lcls_twincat_optics_plc.tmc">
@@ -149,13 +145,13 @@
     <PlaceholderResolution Include="LCLS General">
       <Resolution>LCLS General, * (SLAC)</Resolution>
     </PlaceholderResolution>
-    <PlaceholderResolution Include="TcUnit">
-      <Resolution>TcUnit, * (www.tcunit.org)</Resolution>
-    </PlaceholderResolution>
   </ItemGroup>
   <ItemGroup>
     <LibraryReference Include="lcls-twincat-motion,1.1.0,SLAC">
       <Namespace>lcls_twincat_motion</Namespace>
+    </LibraryReference>
+    <LibraryReference Include="TcUnit,1.0.0.0,www.tcunit.org">
+      <Namespace>TcUnit</Namespace>
     </LibraryReference>
   </ItemGroup>
   <ProjectExtensions>
