@@ -7,7 +7,8 @@ END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[CoupledAfterStartup();
-GantryInterlockStopsMotion();]]></ST>
+//GantryInterlockStopsMotion();
+DecoupledGantryDecrease();]]></ST>
     </Implementation>
     <Method Name="CoupledAfterStartup" Id="{2e7b3eec-c796-4614-b0fd-9bd3d4f01b04}">
       <Declaration><![CDATA[METHOD CoupledAfterStartup
@@ -51,6 +52,91 @@ IF NOT GVL_CoupledAfterStartup.bFirstCycle THEN
 	TEST_FINISHED();
 END_IF;
 GVL_CoupledAfterStartup.bFirstCycle := FALSE;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="DecoupledGantryDecrease" Id="{cb07ba3d-99e7-4ccb-a1f7-052bfaed75a3}">
+      <Declaration><![CDATA[METHOD DecoupledGantryDecrease
+VAR
+	nCurrGantry : LINT;
+//	fbAutoCouple : FB_GantryAutoCoupling;
+
+	fbMotionStage_master : FB_MotionStage;
+	fbMotionStage_slave : FB_MotionStage;
+	
+	bExpectedResult : BOOL := TRUE;
+	bActualResult : BOOL;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Testing motion stop for decoupled gantried axes when gantry > gantry tol
+// and that motion is allowed in directions that reduce the gantry
+TEST('DecoupledGantryDecrease');
+
+GVL_DecoupledGantryDecrease.nCycleCount := GVL_DecoupledGantryDecrease.nCycleCount + 1;
+
+// EnableBits
+GVL_DecoupledGantryDecrease.M1.bLimitForwardEnable := True; // Enable Limits
+GVL_DecoupledGantryDecrease.M1.bLimitBackwardEnable := True;
+GVL_DecoupledGantryDecrease.M1.bPowerSelf := True; // Enable Power
+GVL_DecoupledGantryDecrease.M1.bHardwareEnable := True; // Enable STO
+GVL_DecoupledGantryDecrease.M1.nCommand := 3; // Enable Motion Through PLC
+GVL_DecoupledGantryDecrease.M1.nEnableMode := ENUM_StageEnableMode.ALWAYS;
+
+GVL_DecoupledGantryDecrease.M2.bLimitForwardEnable := True; // Enable Limits
+GVL_DecoupledGantryDecrease.M2.bLimitBackwardEnable := True;
+GVL_DecoupledGantryDecrease.M2.bPowerSelf := True; // Enable Power
+GVL_DecoupledGantryDecrease.M2.bHardwareEnable := True; // Enable STO
+GVL_DecoupledGantryDecrease.M2.nCommand := 3; // Enable Motion Through PLC
+GVL_DecoupledGantryDecrease.M2.nEnableMode := ENUM_StageEnableMode.ALWAYS;
+
+// Enc Ref Vals
+GVL_DecoupledGantryDecrease.stMasterEnc.Ref := 0;
+GVL_DecoupledGantryDecrease.stSlaveEnc.Ref := 0;
+
+// Fake Encoder Position Readback
+GVL_DecoupledGantryDecrease.stMasterEnc.Count := 10000000 + LREAL_TO_ULINT(GVL_DecoupledGantryDecrease.M1.stAxisStatus.fActPosition * EXPT(10, 5)); // Position positive => counts up
+GVL_DecoupledGantryDecrease.stSlaveEnc.Count := 10000000 + LREAL_TO_ULINT(GVL_DecoupledGantryDecrease.M2.stAxisStatus.fActPosition * EXPT(10, 5)); // Position negative => counts down
+
+nCurrGantry := ((ULINT_TO_LINT(GVL_DecoupledGantryDecrease.stMasterEnc.Count) - ULINT_TO_LINT(GVL_DecoupledGantryDecrease.stMasterEnc.Ref)) - (ULINT_TO_LINT(GVL_DecoupledGantryDecrease.stSlaveEnc.Count) - ULINT_TO_LINT(GVL_DecoupledGantryDecrease.stSlaveEnc.Ref)));
+
+IF GVL_DecoupledGantryDecrease.nCycleCount = 5 THEN
+	GVL_DecoupledGantryDecrease.bExecuteDecoupleIn := TRUE;
+	GVL_DecoupledGantryDecrease.M1.fPosition := 10.0;
+	GVL_DecoupledGantryDecrease.M1.fVelocity := 0.2;
+
+	GVL_DecoupledGantryDecrease.M2.fPosition := -10.0;
+	GVL_DecoupledGantryDecrease.M2.fVelocity := 0.2;
+END_IF;
+	
+IF GVL_DecoupledGantryDecrease.nCycleCount = 10 THEN
+	GVL_DecoupledGantryDecrease.M1.bExecute := TRUE;
+	GVL_DecoupledGantryDecrease.M2.bExecute := TRUE;
+END_IF;
+
+GVL_DecoupledGantryDecrease.fbAutoCouple(
+	nGantryTol:=GVL_Constants.nGANTRY_TOLERANCE_NM_DEFAULT,
+    Master:=GVL_DecoupledGantryDecrease.M1,
+    MasterEnc:=GVL_DecoupledGantryDecrease.stMasterEnc,
+    Slave:=GVL_DecoupledGantryDecrease.M2,
+	SlaveEnc:=GVL_DecoupledGantryDecrease.stSlaveEnc,
+    bExecuteCouple:=GVL_DecoupledGantryDecrease.bExecuteCoupleIn,
+    bExecuteDecouple:=GVL_DecoupledGantryDecrease.bExecuteDecoupleIn,
+	bGantryAlreadyCoupled=>GVL_DecoupledGantryDecrease.bGantryAlreadyCoupledOut);
+
+fbMotionStage_master(stMotionStage:=GVL_DecoupledGantryDecrease.M1);
+fbMotionStage_slave(stMotionStage:=GVL_DecoupledGantryDecrease.M2);
+
+IF nCurrGantry > GVL_Constants.nGANTRY_TOLERANCE_NM_DEFAULT THEN
+	bActualResult := (NOT GVL_DecoupledGantryDecrease.M1.bAllForwardEnable) AND (GVL_DecoupledGantryDecrease.M1.bAllBackwardEnable) AND (GVL_DecoupledGantryDecrease.M2.bAllForwardEnable) AND (NOT GVL_DecoupledGantryDecrease.M2.bAllBackwardEnable);
+	AssertEquals(Expected := bExpectedResult,
+		         Actual := bActualResult,
+				 Message := 'Decoupled axes continued motion with gantry larger than the tolerance and/or motion not allowed in direction to reduce gantry');
+	TEST_FINISHED();
+END_IF;
+
+IF GVL_DecoupledGantryDecrease.nCycleCount = 1000000000 THEN
+	GVL_DecoupledGantryDecrease.nCycleCount := 0;
+END_IF;]]></ST>
       </Implementation>
     </Method>
     <Method Name="GantryInterlockStopsMotion" Id="{3d3b7799-5ae8-4960-a155-ad97b264959c}">
@@ -102,7 +188,7 @@ GVL_GantryInterlockStopsMotion.stSlaveEnc.Count := LREAL_TO_ULINT(GVL_GantryInte
 
 nCurrGantry := ((ULINT_TO_LINT(GVL_GantryInterlockStopsMotion.stMasterEnc.Count) - ULINT_TO_LINT(GVL_GantryInterlockStopsMotion.stMasterEnc.Ref)) - (ULINT_TO_LINT(GVL_GantryInterlockStopsMotion.stSlaveEnc.Count) - ULINT_TO_LINT(GVL_GantryInterlockStopsMotion.stSlaveEnc.Ref)));
 
-fbAutoCouple(nGantryTol:=50000,
+fbAutoCouple(nGantryTol:=GVL_Constants.nGANTRY_TOLERANCE_NM_DEFAULT,
              Master:=GVL_GantryInterlockStopsMotion.M1,
              MasterEnc:=GVL_GantryInterlockStopsMotion.stMasterEnc,
              Slave:=GVL_GantryInterlockStopsMotion.M2,
